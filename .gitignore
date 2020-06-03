@@ -8,3 +8,8 @@ notes/
 *.pyc
 .idea/
 dump/
+/words_screenshot_labeled
+/words_csv
+/words_screenshot
+/scanned_images
+
