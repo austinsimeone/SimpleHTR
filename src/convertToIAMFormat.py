@@ -66,7 +66,7 @@ next_image = 'no'
 truth = '...'
 for file in fileList:
     if next_image == 'quit' or truth == 'quit':
-        df.to_csv('csvdir'+str(datetime.datetime.now())+'.csv')
+        df.to_csv(csvdir+str(datetime.datetime.now())+'.csv')
         break
     next_image = 'no'
     while next_image == 'no':
@@ -78,4 +78,4 @@ for file in fileList:
     shutil.move(file,labeldir+image_label[0])
     df.loc[len(df)] = image_label
     
-df.to_csv('csvdir'+str(datetime.datetime.now())+'.csv')
+df.to_csv(csvdir+str(datetime.datetime.now())+'.csv')
