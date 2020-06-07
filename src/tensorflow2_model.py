@@ -52,8 +52,6 @@ class Model:
             # setup optimizer to train NN
             self.batchesTrained = 0
             self.learningRate = tf.keras.input(dtype =  tf.float32, shape = [])
-            (self.sess, self.saver) = self.setupTF()
-            
         
         def setupCNN(self):
             "create CNN layers and return output of these layers"
@@ -116,9 +114,9 @@ class Model:
             # decoder: either best path decoding or beam search decoding
             if self.decoderType == DecoderType.BestPath:
                 self.decoder = tf.nn.ctc_greedy_decoder(inputs=self.ctcIn3dTBC, sequence_length=self.seqLen)
+            elif self.decoderType == DecoderType.BeamSearch:
+                 self.decoder = tf.nn.ctc_beam_search_decoder(inputs=self.ctcIn3dTBC, sequence_length=self.seqLen, beam_width=50) 
 # =============================================================================
-#             elif self.decoderType == DecoderType.BeamSearch:
-#                 self.decoder = tf.nn.ctc_beam_search_decoder(inputs=self.ctcIn3dTBC, sequence_length=self.seqLen, beam_width=50) 
 #             elif self.decoderType == DecoderType.WordBeamSearch:
 #     			# import compiled word beam search operation (see https://github.com/githubharald/CTCWordBeamSearch)
 #                 word_beam_search_module = tf.load_op_library('TFWordBeamSearch.so')
@@ -132,3 +130,56 @@ class Model:
 #                 self.decoder = word_beam_search_module.word_beam_search(tf.nn.softmax(self.ctcIn3dTBC, axis=2), 50, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf8'), wordChars.encode('utf8'))
 # 
 # =============================================================================
+
+
+
+        def toSparse(self, texts):
+        		"put ground truth texts into sparse tensor for ctc_loss"
+        		indices = []
+        		values = []
+        		shape = [len(texts), 0] # last entry must be max(labelList[i])
+        
+        		# go over all texts
+        		for (batchElement, text) in enumerate(texts):
+        			# convert to string of label (i.e. class-ids)
+        			labelStr = [self.charList.index(c) for c in text]
+        			# sparse tensor must have size of max. label-string
+        			if len(labelStr) > shape[1]:
+        				shape[1] = len(labelStr)
+        			# put each label into sparse tensor
+        			for (i, label) in enumerate(labelStr):
+        				indices.append([batchElement, i])
+        				values.append(label)
+        
+        		return (indices, values, shape)
+            
+        def decoderOutputToText(self, ctcOutput, batchSize):
+        		"extract texts from output of CTC decoder"
+        		
+        		# contains string of labels for each batch element
+        		encodedLabelStrs = [[] for i in range(batchSize)]
+        
+        		# word beam search: label strings terminated by blank
+        		if self.decoderType == DecoderType.WordBeamSearch:
+        			blank=len(self.charList)
+        			for b in range(batchSize):
+        				for label in ctcOutput[b]:
+        					if label==blank:
+        						break
+        					encodedLabelStrs[b].append(label)
+        
+        		# TF decoders: label strings are contained in sparse tensor
+        		else:
+        			# ctc returns tuple, first element is SparseTensor 
+        			decoded=ctcOutput[0][0] 
+        
+        			# go over all indices and save mapping: batch -> values
+        			idxDict = { b : [] for b in range(batchSize) }
+        			for (idx, idx2d) in enumerate(decoded.indices):
+        				label = decoded.values[idx]
+        				batchElement = idx2d[0] # index according to [b,t]
+        				encodedLabelStrs[batchElement].append(label)
+        
+        		# map labels to chars for all batch elements
+        		return [str().join([self.charList[c] for c in labelStr]) for labelStr in encodedLabelStrs]
+                   

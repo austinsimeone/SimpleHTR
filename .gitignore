@@ -12,4 +12,4 @@ dump/
 /words_csv
 /words_screenshot
 /scanned_images
-
+*.png
